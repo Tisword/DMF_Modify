@@ -6,8 +6,8 @@ MODEL:
   IF_WITH_CENTER: 'no'
   NAME: 'transformer'
   NO_MARGIN: True
-  DEVICE_ID: ('7')
-  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  DEVICE_ID: ('0')
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_Transcross'
   STRIDE_SIZE: [16, 16]
 
 INPUT:
@@ -27,6 +27,13 @@ INPUT:
     PADDING: 10
     PIXEL_MEAN: [0.5]
     PIXEL_STD: [0.5]
+  SIZE_TRAIN: [ 256, 128 ]
+  SIZE_TEST: [ 256, 128 ]
+  PROB: 0.5 # random horizontal flip
+  RE_PROB: 0.5 # random erasing
+  PADDING: 10
+  PIXEL_MEAN: [ 0.5, 0.5, 0.5 ]
+  PIXEL_STD: [ 0.5, 0.5, 0.5 ]
 
 
 DATASETS:
@@ -56,8 +63,8 @@ TEST:
   EVAL: True
   IMS_PER_BATCH: 256
   RE_RANKING: False
-  WEIGHT: '/data3/XT/TransREID/logs/depth/transformer_depth__120.pth'
+  WEIGHT: '/data3/XT/TransREID/logs/mutil/transformer_depth__120.pth'
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
 
-OUTPUT_DIR: '/data3/XT/TransREID/logs/depth'
+OUTPUT_DIR: '/data3/XT/TransREID/logs/mutil'

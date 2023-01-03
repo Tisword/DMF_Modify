@@ -1,5 +1,5 @@
 from utils.logger import setup_logger
-from datasets import make_dataloader, make_dataloader_cross
+from datasets import make_dataloader, make_dataloader_cross,make_dataloader_mutil
 from model.make_model import make_model_cross
 from solver import make_optimizer
 from solver.scheduler_factory import create_scheduler
@@ -64,8 +64,8 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
     #train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg)
-    train_loader, train_loader_normal, val_loader, num_query, num_classes = make_dataloader_cross(cfg)
-
+    # train_loader, train_loader_normal, val_loader, num_query, num_classes = make_dataloader_cross(cfg)
+    train_loader, train_loader_normal, val_loader, num_query, num_classes,_ = make_dataloader_mutil(cfg)
     model = make_model_cross(cfg, num_class=num_classes)
 
     loss_func, center_criterion = make_loss(cfg, num_classes=num_classes)

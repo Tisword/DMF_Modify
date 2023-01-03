@@ -297,8 +297,10 @@ def do_train_mutil(cfg,
         for n_iter, (img1, img2, vid, target_cam) in enumerate(train_loader):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
+            img2 = torch.cat([img2, img2, img2], dim=1)
             img1 = img1.to(device)
             img2 = img2.to(device)
+             # concat 为三通道
             target = vid.to(device)
             with amp.autocast(enabled=True):
                 score, feat = model((img1, img2), target)
@@ -363,12 +365,14 @@ def do_train_mutil(cfg,
                     torch.cuda.empty_cache()
             else:
                 model.eval()
-                for n_iter, (img, vid, camid, camids, target_view, _) in enumerate(val_loader):
+                for n_iter, (img1, img2,vid, camid, _, _, _,_) in enumerate(val_loader):
                     with torch.no_grad():
-                        img = img.to(device)
+                        img2 = torch.cat([img2, img2, img2], dim=1)
+                        img1 = img1.to(device)
+                        img2 = img2.to(device)
                         # camids = camids.to(device)
                         # target_view = target_view.to(device)
-                        feat = model((img, img))
+                        feat = model((img1, img2))
                         evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
                 logger.info("Validation Results - Epoch: {}".format(epoch))
