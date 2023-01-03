@@ -2,7 +2,7 @@ import torch
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
 
-from .bases import ImageDataset, ImageDataset_cross
+from .bases import ImageDataset, ImageDataset_cross,ImageDataSet_Mutil
 from timm.data.random_erasing import RandomErasing
 from .sampler import RandomIdentitySampler
 from .dukemtmcreid import DukeMTMCreID
@@ -14,8 +14,10 @@ from .occ_duke import OCC_DukeMTMCreID
 from .vehicleid import VehicleID
 from .veri import VeRi
 from .FineGPR import FineGPR
+from .TVPR2 import TVPR2
 __factory = {
     'FineGPR': FineGPR,
+    'TVPR2': TVPR2
 }
 # __factory = {
 #     'market1501': Market1501,
@@ -42,6 +44,20 @@ def train_collate_fn_cross(batch):
     viewids = torch.tensor(viewids, dtype=torch.int64)
     camids = torch.tensor(camids, dtype=torch.int64)
     return torch.stack(imgs1, dim=0), torch.stack(imgs2, dim=0), pids, camids, viewids,
+
+def train_collate_fn_mutil(batch):
+
+    imgs1, imgs2, pids, camids ,viewids, _, _ = zip(*batch)
+    pids = torch.tensor(pids, dtype=torch.int64)
+    viewids = torch.tensor(viewids, dtype=torch.int64)
+    camids = torch.tensor(camids, dtype=torch.int64)
+    return torch.stack(imgs1, dim=0), torch.stack(imgs2, dim=0), pids, camids,viewids
+def val_collate_fn_mutil(batch):
+    imgs1,imgs2, pids, camids,viewids, img1_paths,img2_paths = zip(*batch)
+    viewids = torch.tensor(viewids, dtype=torch.int64)
+    camids_batch = torch.tensor(camids, dtype=torch.int64)
+    return torch.stack(imgs1, dim=0),torch.stack(imgs2, dim=0),pids, camids, camids_batch,viewids, img1_paths,img2_paths
+
 
 def val_collate_fn(batch):
     imgs, pids, camids, viewids, img_paths = zip(*batch)
@@ -184,3 +200,88 @@ def make_dataloader_cross(cfg):
         collate_fn=val_collate_fn
     )
     return train_loader, train_loader_normal, val_loader, len(dataset.query), num_classes
+
+def make_dataloader_mutil(cfg):
+    train_transforms_RGB = T.Compose([
+        T.Resize(cfg.INPUT.RGB.SIZE_TRAIN, interpolation=3),
+        T.RandomHorizontalFlip(p=cfg.INPUT.RGB.PROB),
+        T.Pad(cfg.INPUT.RGB.PADDING),
+        T.RandomCrop(cfg.INPUT.RGB.SIZE_TRAIN),
+        T.ToTensor(),
+        T.Normalize(mean=cfg.INPUT.RGB.PIXEL_MEAN, std=cfg.INPUT.RGB.PIXEL_STD),
+        RandomErasing(probability=cfg.INPUT.RGB.RE_PROB, mode='pixel', max_count=1, device='cpu'),
+        # RandomErasing(probability=cfg.INPUT.RE_PROB, mean=cfg.INPUT.PIXEL_MEAN)
+    ])
+    train_transforms_DEPTH = T.Compose([
+            T.Resize(cfg.INPUT.DEPTH.SIZE_TRAIN, interpolation=3),
+            T.RandomHorizontalFlip(p=cfg.INPUT.DEPTH.PROB),
+            T.Pad(cfg.INPUT.DEPTH.PADDING),
+            T.RandomCrop(cfg.INPUT.DEPTH.SIZE_TRAIN),
+            T.ToTensor(),
+            T.Normalize(mean=cfg.INPUT.DEPTH.PIXEL_MEAN, std=cfg.INPUT.DEPTH.PIXEL_STD),
+            RandomErasing(probability=cfg.INPUT.DEPTH.RE_PROB, mode='pixel', max_count=1, device='cpu'),
+            # RandomErasing(probability=cfg.INPUT.RE_PROB, mean=cfg.INPUT.PIXEL_MEAN)
+        ])
+
+    val_transforms_RGB = T.Compose([
+        T.Resize(cfg.INPUT.RGB.SIZE_TEST),
+        T.ToTensor(),
+        T.Normalize(mean=cfg.INPUT.RGB.PIXEL_MEAN, std=cfg.INPUT.RGB.PIXEL_STD)
+    ])
+    val_transforms_DEPTH=T.Compose([
+        T.Resize(cfg.INPUT.DEPTH.SIZE_TEST),
+        T.ToTensor(),
+        T.Normalize(mean=cfg.INPUT.DEPTH.PIXEL_MEAN, std=cfg.INPUT.DEPTH.PIXEL_STD)
+    ])
+
+    num_workers = cfg.DATALOADER.NUM_WORKERS
+
+    dataset = __factory[cfg.DATASETS.NAMES](root=cfg.DATASETS.ROOT_DIR)
+
+    train_set = ImageDataSet_Mutil(dataset.train1, dataset.train2,transformRGB=train_transforms_RGB,transformDepth=train_transforms_DEPTH)
+    train_set_normal = ImageDataSet_Mutil(dataset.train1, dataset.train2,transformRGB=val_transforms_RGB,transformDepth=val_transforms_DEPTH)
+    num_classes = dataset.num_train_pids
+    cam_num = dataset.num_train_cams
+
+    if 'triplet' in cfg.DATALOADER.SAMPLER:
+        if cfg.MODEL.DIST_TRAIN:
+            print('DIST_TRAIN START')
+            mini_batch_size = cfg.SOLVER.IMS_PER_BATCH // dist.get_world_size()
+            #这里直接传train1就行，因为pid两个数据集都是对应的
+            data_sampler = RandomIdentitySampler_DDP(dataset.train1, cfg.SOLVER.IMS_PER_BATCH,
+                                                     cfg.DATALOADER.NUM_INSTANCE)
+            batch_sampler = torch.utils.data.sampler.BatchSampler(data_sampler, mini_batch_size, True)
+            train_loader = torch.utils.data.DataLoader(
+                train_set,
+                num_workers=num_workers,
+                batch_sampler=batch_sampler,
+                collate_fn=train_collate_fn_mutil,
+                pin_memory=True,
+            )
+        else:
+            train_loader = DataLoader(
+                train_set, batch_size=cfg.SOLVER.IMS_PER_BATCH,
+                sampler=RandomIdentitySampler(dataset.train1, cfg.SOLVER.IMS_PER_BATCH, cfg.DATALOADER.NUM_INSTANCE),
+                num_workers=num_workers, collate_fn=train_collate_fn_mutil
+            )
+    elif cfg.DATALOADER.SAMPLER == 'softmax':
+        print('using softmax sampler')
+        train_loader = DataLoader(
+            train_set, batch_size=cfg.SOLVER.IMS_PER_BATCH, shuffle=True, num_workers=num_workers,
+            collate_fn=train_collate_fn_mutil
+        )
+    else:
+        print('unsupported sampler! expected softmax or triplet but got {}'.format(cfg.SAMPLER))
+
+    val_set = ImageDataSet_Mutil(dataset1= dataset.query1+dataset.gallery1,dataset2=dataset.query2+dataset.gallery2
+                                 ,transformRGB=val_transforms_RGB,transformDepth=val_transforms_DEPTH)
+
+    val_loader = DataLoader(
+        val_set, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,
+        collate_fn=val_collate_fn_mutil
+    )
+    train_loader_normal = DataLoader(
+        train_set_normal, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,
+        collate_fn=val_collate_fn_mutil
+    )
+    return train_loader, train_loader_normal, val_loader, len(dataset.query1), num_classes, cam_num

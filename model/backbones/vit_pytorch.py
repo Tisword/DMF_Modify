@@ -452,6 +452,8 @@ class TransReID(nn.Module):
                                                                                                 self.state_dict()[
                                                                                                     k].shape))
 
+###########这里开始是融合的部分，Linear共享参数
+
 class Attention_cross(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
@@ -489,6 +491,7 @@ class Attention_cross(nn.Module):
         x = (xs, xt)
         return x
 
+#这个函数并没有使用
 class Attention_cross2(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
@@ -557,6 +560,7 @@ class Block_cross(nn.Module):
         return x
 
 
+#这里进行两个模态的融合
 class Transcross(nn.Module):
     """ Transformer-based Object Re-Identification
     """
@@ -649,7 +653,7 @@ class Transcross(nn.Module):
         B = xs.shape[0]
         xs = self.patch_embed(xs)
         xt = self.patch_embed(xt)
-
+        #cls是使用了同一个
         cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         xs = torch.cat((cls_tokens, xs), dim=1)
         xt = torch.cat((cls_tokens, xt), dim=1)

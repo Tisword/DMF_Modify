@@ -86,6 +86,42 @@ _C.INPUT.PIXEL_MEAN = [0.485, 0.456, 0.406]
 _C.INPUT.PIXEL_STD = [0.229, 0.224, 0.225]
 # Value of padding size
 _C.INPUT.PADDING = 10
+# -----------------------------------------------------------------------------
+# INPUT FOR RGB AND DEPTH
+# Size of the image during training
+_C.INPUT.RGB=CN()
+_C.INPUT.DEPTH=CN()
+_C.INPUT.RGB.SIZE_TRAIN = [384, 128]
+# Size of the image during test
+_C.INPUT.RGB.SIZE_TEST = [384, 128]
+# Random probability for image horizontal flip
+_C.INPUT.RGB.PROB = 0.5
+# Random probability for random erasing
+_C.INPUT.RGB.RE_PROB = 0.5
+# Values to be used for image normalization
+_C.INPUT.RGB.PIXEL_MEAN = [0.485, 0.456, 0.406]
+# Values to be used for image normalization
+_C.INPUT.RGB.PIXEL_STD = [0.229, 0.224, 0.225]
+# Value of padding size
+_C.INPUT.RGB.PADDING = 10
+
+# Size of the image during training
+_C.INPUT.DEPTH.SIZE_TRAIN = [384, 128]
+# Size of the image during test
+_C.INPUT.DEPTH.SIZE_TEST = [384, 128]
+# Random probability for image horizontal flip
+_C.INPUT.DEPTH.PROB = 0.5
+# Random probability for random erasing
+_C.INPUT.DEPTH.RE_PROB = 0.5
+# Values to be used for image normalization
+_C.INPUT.DEPTH.PIXEL_MEAN = [0.485, 0.456, 0.406]
+# Values to be used for image normalization
+_C.INPUT.DEPTH.PIXEL_STD = [0.229, 0.224, 0.225]
+# Value of padding size
+_C.INPUT.DEPTH.PADDING = 10
+
+# -----------------------------------------------------------------------------
+
 
 # -----------------------------------------------------------------------------
 # Dataset

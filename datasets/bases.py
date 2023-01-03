@@ -23,6 +23,24 @@ def read_image(img_path):
     return img
 
 
+def read_img_L(img_path):
+    """Keep reading image until succeed.
+    This can avoid IOError incurred by heavy IO process.
+    用于读取深度图片
+    """
+    got_img = False
+    if not osp.exists(img_path):
+        raise IOError("{} does not exist".format(img_path))
+    while not got_img:
+        try:
+            img = Image.open(img_path).convert('L')
+            got_img = True
+        except IOError:
+            print("IOError incurred when reading '{}'. Will redo. Don't worry. Just chill.".format(img_path))
+            pass
+    return img
+
+
 class BaseDataset(object):
     """
     Base class of reid dataset
@@ -85,6 +103,7 @@ class ImageDataset(Dataset):
 
         return img, pid, camid, trackid,img_path.split('/')[-1]
 
+#这里读两个数据集
 class ImageDataset_cross(Dataset):
     def __init__(self, dataset1, dataset2, transform=None):
         self.dataset1 = dataset1
@@ -104,3 +123,25 @@ class ImageDataset_cross(Dataset):
             img1 = self.transform(img1)
             img2 = self.transform(img2)
         return img1, img2, pid, camid, trackid, img1_path.split('/')[-1], img2_path.split('/')[-1]
+
+
+class ImageDataSet_Mutil(Dataset):
+    def __init__(self, dataset1, dataset2, transformRGB=None,transformDepth=None):
+        self.dataset1 = dataset1
+        self.dataset2 = dataset2
+        self.transformRGB = transformRGB
+        self.transformDepth=transformDepth
+
+    def __len__(self):
+        return len(self.dataset1)
+
+    def __getitem__(self, index):
+        img1_path, pid, camid,trackid= self.dataset1[index]
+        img2_path, _, _,_= self.dataset2[index]
+        img1 = read_image(img1_path)
+        img2 = read_image(img2_path)
+        if self.transformRGB is not None:
+            img1 = self.transformRGB(img1)
+        if self.transformDepth is not None:
+            img2 = self.transformDepth(img2)
+        return img1, img2, pid, camid, trackid,img1_path.split('/')[-1], img2_path.split('/')[-1]
